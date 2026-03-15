@@ -18,8 +18,8 @@ public class TSAFieldCentricOpMode extends LinearOpMode {
     private static final double ARM_HOLD_POWER = 0.18;
 
     // ===== CLAW SERVO POSITIONS =====
-    private static final double CLAW_CLOSED_POS = 0.25;
-    private static final double CLAW_OPEN_POS   = 0.75;
+    private static final double CLAW_CLOSED_POS = 0;
+    private static final double CLAW_OPEN_POS   = 0.1;
 
     @Override
     public void runOpMode() throws InterruptedException {
