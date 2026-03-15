@@ -14,7 +14,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 public class TSAFieldCentricOpMode extends LinearOpMode {
 
     // ===== ARM TUNING =====
-    private static final double ARM_MOVE_POWER = 0.45;
+    private static final double ARM_MOVE_POWER = 0.2;
     private static final double ARM_HOLD_POWER = 0.18;
 
     // ===== CLAW SERVO POSITIONS =====
