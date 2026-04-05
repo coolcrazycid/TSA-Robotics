@@ -14,12 +14,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 public class TSAFieldCentricOpMode extends LinearOpMode {
 
     // ===== ARM TUNING =====
-    private static final double ARM_MOVE_POWER = 0.2;
-    private static final double ARM_HOLD_POWER = 0.18;
-
-    // ===== CLAW SERVO POSITIONS =====
-    private static final double CLAW_CLOSED_POS = 0;
-    private static final double CLAW_OPEN_POS   = 0.1;
+    private static final double ARM_MOVE_POWER = 0.5;
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -35,6 +30,10 @@ public class TSAFieldCentricOpMode extends LinearOpMode {
 
         // ===== CLAW =====
         Servo clawServo = hardwareMap.servo.get("clawServo");
+
+        // Hardcoded for testing
+        double clawClosedPos = 0.5;
+        double clawOpenPos = 0.4;
 
         // Drivetrain directions
         frontLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -59,8 +58,8 @@ public class TSAFieldCentricOpMode extends LinearOpMode {
         boolean clawOpen = false;
         boolean lastA = false;
 
-        // Start closed
-        clawServo.setPosition(CLAW_CLOSED_POS);
+        // Set servo to closed position on start
+        clawServo.setPosition(clawClosedPos);
 
         waitForStart();
         if (isStopRequested()) return;
@@ -90,23 +89,26 @@ public class TSAFieldCentricOpMode extends LinearOpMode {
             if (gamepad1.dpad_right) {
                 uArmMotor.setPower(ARM_MOVE_POWER);
             } else if (gamepad1.dpad_left) {
-                uArmMotor.setPower(-1.0); // ONLY CHANGE: max power on the way back
+                uArmMotor.setPower(-ARM_MOVE_POWER);
             } else {
-                uArmMotor.setPower(ARM_HOLD_POWER);
+                uArmMotor.setPower(0.0); // BRAKE holds when no input
             }
 
             // ===== CLAW TOGGLE (A BUTTON) =====
             boolean a = gamepad1.a;
 
-            if (a && !lastA) {   // rising edge
+            if (a && !lastA) {
                 clawOpen = !clawOpen;
-                clawServo.setPosition(clawOpen ? CLAW_OPEN_POS : CLAW_CLOSED_POS);
+                clawServo.setPosition(clawOpen ? clawOpenPos : clawClosedPos);
             }
 
             lastA = a;
 
             telemetry.addData("Claw state", clawOpen ? "OPEN" : "CLOSED");
-            telemetry.addData("Claw pos", clawServo.getPosition());
+            telemetry.addData("Claw current pos", clawServo.getPosition());
+            telemetry.addData("Arm power", uArmMotor.getPower());
+            telemetry.addData("dpad_right", gamepad1.dpad_right);
+            telemetry.addData("dpad_left", gamepad1.dpad_left);
             telemetry.update();
         }
     }
