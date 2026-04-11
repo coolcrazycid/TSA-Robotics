@@ -11,7 +11,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 @TeleOp
-public class TSAFieldCentricOpModeV2 extends LinearOpMode {
+public class TSAFieldCentricOpModeV3 extends LinearOpMode {
 
     // ===== ARM TUNING =====
     private static final double ARM_MAX_POWER        = 0.4;
@@ -21,12 +21,6 @@ public class TSAFieldCentricOpModeV2 extends LinearOpMode {
     private static final double ARM_EXPO             = 2.0;
     private static final double SECOND_ARM_EXPO      = 2.0;
     private static final double STICK_DEADZONE       = 0.05;
-
-    // ===== HOLD TUNING =====
-    private static final double JOINT_HOLD_POWER      = 0.15;
-    private static final double SECOND_ARM_HOLD_POWER = 0.15;
-    private static final int    JOINT_DEAD_ZONE       = 2;
-    private static final int    SECOND_ARM_DEAD_ZONE  = 2;
 
     // ===== DRIVE TUNING =====
     private static final double DRIVE_SPEED = 0.5;
@@ -74,17 +68,12 @@ public class TSAFieldCentricOpModeV2 extends LinearOpMode {
         // Arm setup
         uArmMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         uArmMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        uArmMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // Joint setup
         uArmJoint.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        uArmJoint.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        uArmJoint.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         // Second arm setup
         secondArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        secondArm.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        secondArm.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         // IMU init
         IMU imu = hardwareMap.get(IMU.class, "imu");
@@ -97,11 +86,6 @@ public class TSAFieldCentricOpModeV2 extends LinearOpMode {
         imu.initialize(parameters);
 
         // ===== STATE =====
-        int     jointTargetPos     = 0;
-        boolean jointHoldMode      = false;
-        int     secondArmTargetPos = 0;
-        boolean secondArmHoldMode  = false;
-
         boolean clawOpen     = false;
         boolean ringClawOpen = false;
         boolean lastA        = false;
@@ -140,54 +124,14 @@ public class TSAFieldCentricOpModeV2 extends LinearOpMode {
             uArmMotor.setPower(armPower);
 
             // ===== JOINT =====
-            double rawJoint     = gamepad2.left_stick_x;
-            double jointPower   = expoInput(rawJoint, JOINT_EXPO) * JOINT_MAX_POWER;
-            boolean jointMoving = Math.abs(rawJoint) > STICK_DEADZONE;
-
-            if (jointMoving) {
-                if (jointHoldMode) {
-                    uArmJoint.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-                    jointHoldMode = false;
-                }
-                uArmJoint.setPower(jointPower);
-            } else {
-                if (!jointHoldMode) {
-                    jointTargetPos = uArmJoint.getCurrentPosition();
-                    uArmJoint.setTargetPosition(jointTargetPos);
-                    uArmJoint.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                    uArmJoint.setPower(JOINT_HOLD_POWER);
-                    jointHoldMode = true;
-                }
-                int jointError = Math.abs(uArmJoint.getCurrentPosition() - jointTargetPos);
-                if (jointError <= JOINT_DEAD_ZONE) {
-                    uArmJoint.setPower(0.1);
-                }
-            }
+            double rawJoint   = gamepad2.left_stick_x;
+            double jointPower = expoInput(rawJoint, JOINT_EXPO) * JOINT_MAX_POWER;
+            uArmJoint.setPower(jointPower);
 
             // ===== SECOND ARM =====
-            double rawSecondArm     = -gamepad2.right_stick_y;
-            double secondArmPower   = expoInput(rawSecondArm, SECOND_ARM_EXPO) * SECOND_ARM_MAX_POWER;
-            boolean secondArmMoving = Math.abs(rawSecondArm) > STICK_DEADZONE;
-
-            if (secondArmMoving) {
-                if (secondArmHoldMode) {
-                    secondArm.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-                    secondArmHoldMode = false;
-                }
-                secondArm.setPower(secondArmPower);
-            } else {
-                if (!secondArmHoldMode) {
-                    secondArmTargetPos = secondArm.getCurrentPosition();
-                    secondArm.setTargetPosition(secondArmTargetPos);
-                    secondArm.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                    secondArm.setPower(SECOND_ARM_HOLD_POWER);
-                    secondArmHoldMode = true;
-                }
-                int secondArmError = Math.abs(secondArm.getCurrentPosition() - secondArmTargetPos);
-                if (secondArmError <= SECOND_ARM_DEAD_ZONE) {
-                    secondArm.setPower(0.1);
-                }
-            }
+            double rawSecondArm   = -gamepad2.right_stick_y;
+            double secondArmPower = expoInput(rawSecondArm, SECOND_ARM_EXPO) * SECOND_ARM_MAX_POWER;
+            secondArm.setPower(secondArmPower);
 
             // ===== CLAW TOGGLE (A) =====
             boolean a = gamepad2.a;
@@ -206,25 +150,18 @@ public class TSAFieldCentricOpModeV2 extends LinearOpMode {
             lastB = b;
 
             // ===== TELEMETRY =====
-            telemetry.addData("--- DRIVE (GP1) ---",             "");
-            telemetry.addData("Heading (deg)",                    Math.toDegrees(imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS)));
-            telemetry.addData("--- ARM (GP2 L-Stick Y) ---",     "");
-            telemetry.addData("Arm raw input",                    rawArm);
-            telemetry.addData("Arm power",                        armPower);
-            telemetry.addData("--- JOINT (GP2 L-Stick X) ---",   "");
-            telemetry.addData("Joint raw input",                  rawJoint);
-            telemetry.addData("Joint power",                      uArmJoint.getPower());
-            telemetry.addData("Joint mode",                       jointHoldMode ? "HOLDING" : "MOVING");
-            telemetry.addData("Joint pos",                        uArmJoint.getCurrentPosition());
-            telemetry.addData("--- 2ND ARM (GP2 R-Stick Y) ---", "");
-            telemetry.addData("2nd Arm raw input",                rawSecondArm);
-            telemetry.addData("2nd Arm power",                    secondArm.getPower());
-            telemetry.addData("2nd Arm mode",                     secondArmHoldMode ? "HOLDING" : "MOVING");
-            telemetry.addData("2nd Arm pos",                      secondArm.getCurrentPosition());
-            telemetry.addData("--- CLAW (GP2 A) ---",            "");
-            telemetry.addData("Claw state",                       clawOpen ? "OPEN" : "CLOSED");
-            telemetry.addData("--- RING CLAW (GP2 B) ---",       "");
-            telemetry.addData("Ring Claw state",                  ringClawOpen ? "OPEN" : "CLOSED");
+            telemetry.addLine("=== DRIVE ===");
+            telemetry.addData("Heading", "%.1f deg", Math.toDegrees(imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS)));
+
+            telemetry.addLine("=== ARM ===");
+            telemetry.addData("Main arm",   "%.2f", armPower);
+            telemetry.addData("Joint",      "%.2f", jointPower);
+            telemetry.addData("Second arm", "%.2f", secondArmPower);
+
+            telemetry.addLine("=== CLAWS ===");
+            telemetry.addData("Claw",      clawOpen     ? "OPEN" : "CLOSED");
+            telemetry.addData("Ring claw", ringClawOpen ? "OPEN" : "CLOSED");
+
             telemetry.update();
         }
     }
