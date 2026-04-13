@@ -11,15 +11,12 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 @TeleOp
-public class TSAFieldCentricOpModeV2 extends LinearOpMode {
+public class TSAFieldCentricOpModeV5 extends LinearOpMode {
 
     // ===== ARM TUNING =====
     private static final double ARM_MAX_POWER        = 0.65;
     private static final double JOINT_MAX_POWER      = -0.4;
     private static final double SECOND_ARM_MAX_POWER = 0.4;
-    private static final double JOINT_EXPO           = 1.8;
-    private static final double SECOND_ARM_EXPO      = 1.8;
-    private static final double STICK_DEADZONE       = 0.00;
 
     // ===== DRIVE TUNING =====
     private static final double DRIVE_SPEED = 0.5;
@@ -31,12 +28,6 @@ public class TSAFieldCentricOpModeV2 extends LinearOpMode {
     // ===== RING CLAW TUNING =====
     private static final double RING_CLAW_OPEN  = 0.52;
     private static final double RING_CLAW_CLOSE = 0.58;
-
-    /** Applies an exponential curve to a joystick input, preserving sign. */
-    private double expoInput(double raw, double exponent) {
-        if (Math.abs(raw) < STICK_DEADZONE) return 0.0;
-        return Math.signum(raw) * Math.pow(Math.abs(raw), exponent);
-    }
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -96,8 +87,9 @@ public class TSAFieldCentricOpModeV2 extends LinearOpMode {
         // ===== STATE =====
         boolean clawOpen     = false;
         boolean ringClawOpen = false;
-        boolean lastA        = false;
+        boolean lastA_gp2    = false;
         boolean lastB        = false;
+        boolean lastA_gp1    = false;
 
         clawServo.setPosition(CLAW_CLOSE);
         ringClaw.setPosition(RING_CLAW_CLOSE);
@@ -127,50 +119,57 @@ public class TSAFieldCentricOpModeV2 extends LinearOpMode {
             backRightMotor.setPower(DRIVE_SPEED  * (rotY + rotX - rx) / denom);
 
             // ===== ARM (triggers) =====
-            // Right trigger = raise, left trigger = lower
             double rawArm   = gamepad2.right_trigger - gamepad2.left_trigger;
             double armPower = rawArm * ARM_MAX_POWER;
             uArmMotor.setPower(armPower);
 
             // ===== JOINT (left stick Y) =====
             double rawJoint   = -gamepad2.left_stick_y;
-            double jointPower = expoInput(rawJoint, JOINT_EXPO) * JOINT_MAX_POWER;
-            uArmJoint.setPower(jointPower); // 0 in deadzone → BRAKE kicks in
+            double jointPower = rawJoint * JOINT_MAX_POWER;
+            uArmJoint.setPower(jointPower);
 
-            // ===== SECOND ARM (right stick Y) =====
+            // ===== SECOND ARM =====
             double rawSecondArm   = -gamepad2.right_stick_y;
-            double secondArmPower = expoInput(rawSecondArm, SECOND_ARM_EXPO) * SECOND_ARM_MAX_POWER;
-            secondArm.setPower(secondArmPower); // 0 in deadzone → BRAKE kicks in
+            double secondArmPower = rawSecondArm * SECOND_ARM_MAX_POWER;
 
-            // ===== CLAW TOGGLE (A) — payload grabber =====
-            boolean a = gamepad2.a;
-            if (a && !lastA) {
+            if (secondArmPower == 0.0) {
+                if (gamepad1.left_bumper) {
+                    secondArmPower = SECOND_ARM_MAX_POWER;
+                } else if (gamepad1.right_bumper) {
+                    secondArmPower = -SECOND_ARM_MAX_POWER;
+                }
+            }
+            secondArm.setPower(secondArmPower);
+
+            // ===== CLAW TOGGLE (gamepad2 A) =====
+            boolean a_gp2 = gamepad2.a;
+            if (a_gp2 && !lastA_gp2) {
                 clawOpen = !clawOpen;
                 clawServo.setPosition(clawOpen ? CLAW_OPEN : CLAW_CLOSE);
             }
-            lastA = a;
+            lastA_gp2 = a_gp2;
 
-            // ===== RING CLAW TOGGLE (B) — ring/object grabber =====
-            boolean b = gamepad2.b;
-            if (b && !lastB) {
+            // ===== RING CLAW TOGGLE — gamepad2 B OR gamepad1 A =====
+            boolean b     = gamepad2.b;
+            boolean a_gp1 = gamepad1.a;
+
+            if ((b && !lastB) || (a_gp1 && !lastA_gp1)) {
                 ringClawOpen = !ringClawOpen;
                 ringClaw.setPosition(ringClawOpen ? RING_CLAW_OPEN : RING_CLAW_CLOSE);
             }
-            lastB = b;
+            lastB     = b;
+            lastA_gp1 = a_gp1;
 
             // ===== TELEMETRY =====
-            // --- Navigation ---
             telemetry.addLine("[ NAVIGATION ]");
             telemetry.addData("Field heading", "%.1f deg", Math.toDegrees(heading));
             telemetry.addData("Drive power",   "%.2f", Math.hypot(rotX, rotY) * DRIVE_SPEED);
 
-            // --- Arm status ---
             telemetry.addLine("[ ARM ]");
             telemetry.addData("Main arm",   armPower  > 0.05 ? "RAISING" : armPower < -0.05 ? "LOWERING" : "HOLDING");
             telemetry.addData("Joint",      jointPower > 0.05 ? "EXTENDING" : jointPower < -0.05 ? "RETRACTING" : "HOLDING");
             telemetry.addData("Second arm", secondArmPower > 0.05 ? "EXTENDING" : secondArmPower < -0.05 ? "RETRACTING" : "HOLDING");
 
-            // --- Payload / claw status ---
             telemetry.addLine("[ PAYLOAD ]");
             telemetry.addData("Claw (payload)",  clawOpen     ? "OPEN — ready to grab" : "CLOSED — holding");
             telemetry.addData("Ring claw",       ringClawOpen ? "OPEN — ready to grab" : "CLOSED — holding");

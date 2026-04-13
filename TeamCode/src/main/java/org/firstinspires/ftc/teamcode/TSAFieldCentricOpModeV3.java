@@ -14,20 +14,18 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 public class TSAFieldCentricOpModeV3 extends LinearOpMode {
 
     // ===== ARM TUNING =====
-    private static final double ARM_MAX_POWER        = 0.4;
-    private static final double JOINT_MAX_POWER      = 0.3;
-    private static final double SECOND_ARM_MAX_POWER = 0.3;
-    private static final double JOINT_EXPO           = 2.0;
-    private static final double ARM_EXPO             = 2.0;
-    private static final double SECOND_ARM_EXPO      = 2.0;
-    private static final double STICK_DEADZONE       = 0.05;
+    private static final double ARM_MAX_POWER        = 0.65;
+    private static final double JOINT_MAX_POWER      = -0.4;
+    private static final double SECOND_ARM_MAX_POWER = 0.4;
+    private static final double JOINT_EXPO           = 1.8;
+    private static final double SECOND_ARM_EXPO      = 1.8;
 
     // ===== DRIVE TUNING =====
     private static final double DRIVE_SPEED = 0.5;
 
     // ===== CLAW TUNING =====
     private static final double CLAW_OPEN  = 0.52;
-    private static final double CLAW_CLOSE = 0.63;
+    private static final double CLAW_CLOSE = 0.64;
 
     // ===== RING CLAW TUNING =====
     private static final double RING_CLAW_OPEN  = 0.52;
@@ -35,7 +33,6 @@ public class TSAFieldCentricOpModeV3 extends LinearOpMode {
 
     /** Applies an exponential curve to a joystick input, preserving sign. */
     private double expoInput(double raw, double exponent) {
-        if (Math.abs(raw) < STICK_DEADZONE) return 0.0;
         return Math.signum(raw) * Math.pow(Math.abs(raw), exponent);
     }
 
@@ -65,15 +62,24 @@ public class TSAFieldCentricOpModeV3 extends LinearOpMode {
         frontLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         backLeftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
+        // Drivetrain brake mode
+        frontLeftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backLeftMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontRightMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backRightMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         // Arm setup
         uArmMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         uArmMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        uArmMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // Joint setup
         uArmJoint.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        uArmJoint.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // Second arm setup
         secondArm.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        secondArm.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // IMU init
         IMU imu = hardwareMap.get(IMU.class, "imu");
@@ -104,7 +110,7 @@ public class TSAFieldCentricOpModeV3 extends LinearOpMode {
             double x  =  gamepad1.left_stick_x;
             double rx =  gamepad1.right_stick_x;
 
-            if (gamepad1.options) imu.resetYaw();
+            if (gamepad1.back) imu.resetYaw();
 
             double heading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
 
@@ -118,22 +124,23 @@ public class TSAFieldCentricOpModeV3 extends LinearOpMode {
             frontRightMotor.setPower(DRIVE_SPEED * (rotY - rotX - rx) / denom);
             backRightMotor.setPower(DRIVE_SPEED  * (rotY + rotX - rx) / denom);
 
-            // ===== ARM =====
-            double rawArm   = -gamepad2.left_stick_y;
-            double armPower = expoInput(rawArm, ARM_EXPO) * ARM_MAX_POWER;
+            // ===== ARM (triggers) =====
+            // Right trigger = raise, left trigger = lower
+            double rawArm   = gamepad2.right_trigger - gamepad2.left_trigger;
+            double armPower = rawArm * ARM_MAX_POWER;
             uArmMotor.setPower(armPower);
 
-            // ===== JOINT =====
-            double rawJoint   = gamepad2.left_stick_x;
+            // ===== JOINT (left stick Y) =====
+            double rawJoint   = -gamepad2.left_stick_y;
             double jointPower = expoInput(rawJoint, JOINT_EXPO) * JOINT_MAX_POWER;
             uArmJoint.setPower(jointPower);
 
-            // ===== SECOND ARM =====
+            // ===== SECOND ARM (right stick Y) =====
             double rawSecondArm   = -gamepad2.right_stick_y;
             double secondArmPower = expoInput(rawSecondArm, SECOND_ARM_EXPO) * SECOND_ARM_MAX_POWER;
             secondArm.setPower(secondArmPower);
 
-            // ===== CLAW TOGGLE (A) =====
+            // ===== CLAW TOGGLE (A) — payload grabber =====
             boolean a = gamepad2.a;
             if (a && !lastA) {
                 clawOpen = !clawOpen;
@@ -141,7 +148,7 @@ public class TSAFieldCentricOpModeV3 extends LinearOpMode {
             }
             lastA = a;
 
-            // ===== RING CLAW TOGGLE (B) =====
+            // ===== RING CLAW TOGGLE (B) — ring/object grabber =====
             boolean b = gamepad2.b;
             if (b && !lastB) {
                 ringClawOpen = !ringClawOpen;
@@ -150,17 +157,21 @@ public class TSAFieldCentricOpModeV3 extends LinearOpMode {
             lastB = b;
 
             // ===== TELEMETRY =====
-            telemetry.addLine("=== DRIVE ===");
-            telemetry.addData("Heading", "%.1f deg", Math.toDegrees(imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS)));
+            // --- Navigation ---
+            telemetry.addLine("[ NAVIGATION ]");
+            telemetry.addData("Field heading", "%.1f deg", Math.toDegrees(heading));
+            telemetry.addData("Drive power",   "%.2f", Math.hypot(rotX, rotY) * DRIVE_SPEED);
 
-            telemetry.addLine("=== ARM ===");
-            telemetry.addData("Main arm",   "%.2f", armPower);
-            telemetry.addData("Joint",      "%.2f", jointPower);
-            telemetry.addData("Second arm", "%.2f", secondArmPower);
+            // --- Arm status ---
+            telemetry.addLine("[ ARM ]");
+            telemetry.addData("Main arm",   armPower  > 0.05 ? "RAISING" : armPower < -0.05 ? "LOWERING" : "HOLDING");
+            telemetry.addData("Joint",      jointPower > 0.05 ? "EXTENDING" : jointPower < -0.05 ? "RETRACTING" : "HOLDING");
+            telemetry.addData("Second arm", secondArmPower > 0.05 ? "EXTENDING" : secondArmPower < -0.05 ? "RETRACTING" : "HOLDING");
 
-            telemetry.addLine("=== CLAWS ===");
-            telemetry.addData("Claw",      clawOpen     ? "OPEN" : "CLOSED");
-            telemetry.addData("Ring claw", ringClawOpen ? "OPEN" : "CLOSED");
+            // --- Payload / claw status ---
+            telemetry.addLine("[ PAYLOAD ]");
+            telemetry.addData("Claw (payload)",  clawOpen     ? "OPEN — ready to grab" : "CLOSED — holding");
+            telemetry.addData("Ring claw",       ringClawOpen ? "OPEN — ready to grab" : "CLOSED — holding");
 
             telemetry.update();
         }
