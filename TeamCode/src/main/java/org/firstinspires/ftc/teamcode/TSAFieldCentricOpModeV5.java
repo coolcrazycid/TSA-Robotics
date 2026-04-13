@@ -84,7 +84,7 @@ public class TSAFieldCentricOpModeV5 extends LinearOpMode {
         );
         imu.initialize(parameters);
 
-        // ===== STATE =====
+        // State/boolean set up
         boolean clawOpen     = false;
         boolean ringClawOpen = false;
         boolean lastA_gp2    = false;
@@ -99,7 +99,7 @@ public class TSAFieldCentricOpModeV5 extends LinearOpMode {
 
         while (opModeIsActive()) {
 
-            // ===== FIELD-CENTRIC DRIVE =====
+            //FIELD-CENTRIC DRIVE
             double y  = -gamepad1.left_stick_y;
             double x  =  gamepad1.left_stick_x;
             double rx =  gamepad1.right_stick_x;
@@ -118,17 +118,17 @@ public class TSAFieldCentricOpModeV5 extends LinearOpMode {
             frontRightMotor.setPower(DRIVE_SPEED * (rotY - rotX - rx) / denom);
             backRightMotor.setPower(DRIVE_SPEED  * (rotY + rotX - rx) / denom);
 
-            // ===== ARM (triggers) =====
+            //ARM (triggers)
             double rawArm   = gamepad2.right_trigger - gamepad2.left_trigger;
             double armPower = rawArm * ARM_MAX_POWER;
             uArmMotor.setPower(armPower);
 
-            // ===== JOINT (left stick Y) =====
+            //JOINT (left stick Y)
             double rawJoint   = -gamepad2.left_stick_y;
             double jointPower = rawJoint * JOINT_MAX_POWER;
             uArmJoint.setPower(jointPower);
 
-            // ===== SECOND ARM =====
+            //SECOND ARM
             double rawSecondArm   = -gamepad2.right_stick_y;
             double secondArmPower = rawSecondArm * SECOND_ARM_MAX_POWER;
 
@@ -141,7 +141,7 @@ public class TSAFieldCentricOpModeV5 extends LinearOpMode {
             }
             secondArm.setPower(secondArmPower);
 
-            // ===== CLAW TOGGLE (gamepad2 A) =====
+            //CLAW TOGGLE (gamepad2 A)
             boolean a_gp2 = gamepad2.a;
             if (a_gp2 && !lastA_gp2) {
                 clawOpen = !clawOpen;
@@ -149,7 +149,7 @@ public class TSAFieldCentricOpModeV5 extends LinearOpMode {
             }
             lastA_gp2 = a_gp2;
 
-            // ===== RING CLAW TOGGLE — gamepad2 B OR gamepad1 A =====
+            //RING CLAW TOGGLE
             boolean b     = gamepad2.b;
             boolean a_gp1 = gamepad1.a;
 
@@ -160,17 +160,17 @@ public class TSAFieldCentricOpModeV5 extends LinearOpMode {
             lastB     = b;
             lastA_gp1 = a_gp1;
 
-            // ===== TELEMETRY =====
-            telemetry.addLine("[ NAVIGATION ]");
+            //TELEMETRY
+            telemetry.addLine("NAVIGATION");
             telemetry.addData("Field heading", "%.1f deg", Math.toDegrees(heading));
             telemetry.addData("Drive power",   "%.2f", Math.hypot(rotX, rotY) * DRIVE_SPEED);
 
-            telemetry.addLine("[ ARM ]");
+            telemetry.addLine("ARM");
             telemetry.addData("Main arm",   armPower  > 0.05 ? "RAISING" : armPower < -0.05 ? "LOWERING" : "HOLDING");
             telemetry.addData("Joint",      jointPower > 0.05 ? "EXTENDING" : jointPower < -0.05 ? "RETRACTING" : "HOLDING");
             telemetry.addData("Second arm", secondArmPower > 0.05 ? "EXTENDING" : secondArmPower < -0.05 ? "RETRACTING" : "HOLDING");
 
-            telemetry.addLine("[ PAYLOAD ]");
+            telemetry.addLine("PAYLOAD");
             telemetry.addData("Claw (payload)",  clawOpen     ? "OPEN — ready to grab" : "CLOSED — holding");
             telemetry.addData("Ring claw",       ringClawOpen ? "OPEN — ready to grab" : "CLOSED — holding");
 
